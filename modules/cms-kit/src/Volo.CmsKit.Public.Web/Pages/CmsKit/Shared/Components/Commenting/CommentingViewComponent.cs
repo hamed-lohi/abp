@@ -84,6 +84,8 @@ public class CommentingViewComponent : AbpViewComponent
         public string LoginUrl { get; set; }
 
         public IReadOnlyList<CommentWithDetailsDto> Comments { get; set; }
+
+        public Dictionary<Guid, string> RawCommentTexts { get; set; }
     }
 }
 
