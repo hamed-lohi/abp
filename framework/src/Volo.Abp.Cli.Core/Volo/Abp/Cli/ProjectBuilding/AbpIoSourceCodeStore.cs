@@ -200,6 +200,30 @@ public class AbpIoSourceCodeStore : ISourceCodeStore, ITransientDependency
         }
     }
 
+        private async Task<bool> IsVersionExists(string version)
+        {
+            var url = $"{CliUrls.WwwAbpIo}api/download/versions?includePreReleases=true";
+
+            try
+            {
+                var client = _cliHttpClientFactory.CreateClient();
+
+                using (var response = await client.GetAsync(url,
+                    _cliHttpClientFactory.GetCancellationToken(TimeSpan.FromMinutes(10))))
+                {
+                    await RemoteServiceExceptionHandler.EnsureSuccessfulHttpResponseAsync(response);
+                    var result = await response.Content.ReadAsStringAsync();
+                    var versions = JsonSerializer.Deserialize<List<GithubRelease>>(result);
+
+                    return versions.Any(v => v.Name == version);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error occured while getting the versions from {url} : {ex.Message}");
+            }
+        }
+
         private async Task<byte[]> DownloadSourceCodeContentAsync(SourceCodeDownloadInputDto input)
         {
             var url = $"{CliUrls.WwwAbpIo}api/download/{input.Type}/";
