@@ -90,7 +90,7 @@ public class AbpIoSourceCodeStore : ISourceCodeStore, ITransientDependency
                 }
             }
 
-            var nugetVersion = await GetTemplateNugetVersionAsync(name, type, version);
+            var nugetVersion = (await GetTemplateNugetVersionAsync(name, type, version)) ?? version;
 
             if (!string.IsNullOrWhiteSpace(templateSource) && !IsNetworkSource(templateSource))
             {
