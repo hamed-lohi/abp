@@ -80,39 +80,35 @@ public class AbpIoSourceCodeStore : ISourceCodeStore, ITransientDependency
                 throw new CliUsageException("Use command: abp new Acme.BookStore -v version");
             }
 
-                version = latestVersion;
-            }
-            else
-            {
-                if (!await IsVersionExists(version))
-                {
-                    throw new Exception("There is no version found with given version: " + version);
-                }
-            }
+            version = latestVersion;
+        }
 
-            var nugetVersion = (await GetTemplateNugetVersionAsync(name, type, version)) ?? version;
+        if (await GetTemplateNugetVersionAsync(name, type, version) == null)
+        {
+            throw new Exception("There is no version found with given version: " + version);
+        }
 
-            if (!string.IsNullOrWhiteSpace(templateSource) && !IsNetworkSource(templateSource))
-            {
-                Logger.LogInformation("Using local " + type + ": " + name + ", version: " + version);
-                return new TemplateFile(File.ReadAllBytes(Path.Combine(templateSource, name + "-" + version + ".zip")),
-                    version, latestVersion, nugetVersion);
-            }
+        if (!string.IsNullOrWhiteSpace(templateSource) && !IsNetworkSource(templateSource))
+        {
+            Logger.LogInformation("Using local " + type + ": " + name + ", version: " + version);
+            return new TemplateFile(File.ReadAllBytes(Path.Combine(templateSource, name + "-" + version + ".zip")),
+                version, latestVersion, version);
+        }
 
         var localCacheFile = Path.Combine(CliPaths.TemplateCache, name.Replace("/", ".") + "-" + version + ".zip");
 
 #if DEBUG
-            if (File.Exists(localCacheFile))
-            {
-                return new TemplateFile(File.ReadAllBytes(localCacheFile), version, latestVersion, nugetVersion);
-            }
+        if (File.Exists(localCacheFile))
+        {
+            return new TemplateFile(File.ReadAllBytes(localCacheFile), version, latestVersion, version);
+        }
 #endif
 
-            if (Options.CacheTemplates && File.Exists(localCacheFile) && templateSource.IsNullOrWhiteSpace())
-            {
-                Logger.LogInformation("Using cached " + type + ": " + name + ", version: " + version);
-                return new TemplateFile(File.ReadAllBytes(localCacheFile), version, latestVersion, nugetVersion);
-            }
+        if (Options.CacheTemplates && File.Exists(localCacheFile) && templateSource.IsNullOrWhiteSpace())
+        {
+            Logger.LogInformation("Using cached " + type + ": " + name + ", version: " + version);
+            return new TemplateFile(File.ReadAllBytes(localCacheFile), version, latestVersion, version);
+        }
 
         Logger.LogInformation("Downloading " + type + ": " + name + ", version: " + version);
 
@@ -132,8 +128,8 @@ public class AbpIoSourceCodeStore : ISourceCodeStore, ITransientDependency
             File.WriteAllBytes(localCacheFile, fileContent);
         }
 
-            return new TemplateFile(fileContent, version, latestVersion, nugetVersion);
-        }
+        return new TemplateFile(fileContent, version, latestVersion, version);
+    }
 
     private async Task<string> GetLatestSourceCodeVersionAsync(string name, string type, string url = null,
         bool includePreReleases = false)
@@ -200,33 +196,9 @@ public class AbpIoSourceCodeStore : ISourceCodeStore, ITransientDependency
         }
     }
 
-        private async Task<bool> IsVersionExists(string version)
-        {
-            var url = $"{CliUrls.WwwAbpIo}api/download/versions?includePreReleases=true";
-
-            try
-            {
-                var client = _cliHttpClientFactory.CreateClient();
-
-                using (var response = await client.GetAsync(url,
-                    _cliHttpClientFactory.GetCancellationToken(TimeSpan.FromMinutes(10))))
-                {
-                    await RemoteServiceExceptionHandler.EnsureSuccessfulHttpResponseAsync(response);
-                    var result = await response.Content.ReadAsStringAsync();
-                    var versions = JsonSerializer.Deserialize<List<GithubRelease>>(result);
-
-                    return versions.Any(v => v.Name == version);
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Error occured while getting the versions from {url} : {ex.Message}");
-            }
-        }
-
-        private async Task<byte[]> DownloadSourceCodeContentAsync(SourceCodeDownloadInputDto input)
-        {
-            var url = $"{CliUrls.WwwAbpIo}api/download/{input.Type}/";
+    private async Task<byte[]> DownloadSourceCodeContentAsync(SourceCodeDownloadInputDto input)
+    {
+        var url = $"{CliUrls.WwwAbpIo}api/download/{input.Type}/";
 
         HttpResponseMessage responseMessage = null;
 
@@ -316,20 +288,8 @@ public class AbpIoSourceCodeStore : ISourceCodeStore, ITransientDependency
         public bool IncludePreReleases { get; set; }
     }
 
-        public class GetVersionResultDto
-        {
-            public string Version { get; set; }
-        }
-
-        public class GithubRelease
-        {
-            public int Id { get; set; }
-
-            public string Name { get; set; }
-
-            public bool IsPrerelease { get; set; }
-
-            public DateTime PublishTime { get; set; }
-        }
+    public class GetVersionResultDto
+    {
+        public string Version { get; set; }
     }
 }
